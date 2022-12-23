@@ -1,8 +1,13 @@
 import 'package:breadfast/Screens/Screens.dart';
+import 'package:breadfast/Screens/placeprovider.dart';
+import 'package:breadfast/Screens/sugestion.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:search_map_place/search_map_place.dart';
+import 'package:uuid/uuid.dart';
+
+import '../Component/adresssearch.dart';
+
 
 class MapScreen extends StatefulWidget {
   @override
@@ -16,6 +21,7 @@ class _MapScreenState extends State<MapScreen> {
   double _CurrentLong;
   String country;
   String government;
+    Position myCurrentPosition;
   String city;
   String street;
   var _target;
@@ -34,6 +40,9 @@ class _MapScreenState extends State<MapScreen> {
       markers[markerId] = _marker;
     });
   }
+  PlaceApiProvider placeApiProvider = PlaceApiProvider();
+  LatLng defaultLondonCoordinates = const LatLng(51.5072, 0.1276);
+  TextEditingController textEditingController = TextEditingController();
 
   @override
   void initState() {
@@ -159,21 +168,67 @@ class _MapScreenState extends State<MapScreen> {
                   left: 10,
                   right: 10,
                   top: MediaQuery.of(context).size.height * 0.17,
-                  child: SearchMapPlaceWidget(
-                    hasClearButton: true,
-                    iconColor: Theme.of(context).primaryColor,
-                    placeType: PlaceType.address,
-                    placeholder: 'Search for your area',
-                    apiKey: 'AIzaSyBUILBxCa5yyQZawAAOpD6HII48R3haimM',
-                    onSelected: (Place place) async {
-                      Geolocation geolocation = await place.geolocation;
-                      mapController.animateCamera(
-                          CameraUpdate.newLatLng(geolocation.coordinates));
-                      mapController.animateCamera(
-                          CameraUpdate.newLatLngBounds(geolocation.bounds, 0));
-                      print(geolocation.coordinates);
-                    },
-                  ),
+                  child:  Center(
+                              child: TextField(
+                                controller: textEditingController,
+                                readOnly: true,
+                                onTap: () async {
+                                  PlaceApiProvider.sessionToken =
+                                      const Uuid().v4();
+                                  final Suggestion result = await showSearch(
+                                    context: context,
+                                    delegate: AddressSearch(),
+                                  );
+
+                                  if (result != null) {
+                                    LatLng latLng = await placeApiProvider
+                                        .getPlaceDetailFromId(context,
+                                            placeId: result.placeId);
+                                    if (latLng != null) {
+                                      myCurrentPosition = Position(
+                                          longitude: latLng.longitude,
+                                          latitude: latLng.latitude,
+                                          timestamp: null,
+                                          accuracy: 0.0,
+                                          altitude: 0.0,
+                                          heading: 0.0,
+                                          speed: 0.0,
+                                          speedAccuracy: 0.0);
+                                      mapController.animateCamera(
+                                        CameraUpdate.newCameraPosition(
+                                          CameraPosition(
+                                            target: latLng,
+                                            zoom: 15,
+                                          ),
+                                        ),
+                                      );
+                                      setState(() {});
+                                    }
+                                    textEditingController.text =
+                                        result.description;
+                                  }
+                                },
+                                decoration: InputDecoration(
+                                  enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(
+                                          color: Colors.transparent)),
+                                  focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(
+                                          color: Colors.transparent)),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(
+                                          color: Colors.transparent)),
+                                  hintText: 'Search for area, building name...',
+                                  hintStyle: const TextStyle(
+                                    color: Color(0xFF535353),
+                                  ),
+                                  suffixIcon: const SizedBox(),
+                                ),
+                              ),
+                            ),
                 ),
                 Positioned(
                   bottom: 10,
